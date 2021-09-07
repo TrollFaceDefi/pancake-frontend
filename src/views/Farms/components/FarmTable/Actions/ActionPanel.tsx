@@ -1,69 +1,49 @@
-import React from 'react'
-import styled, { keyframes, css } from 'styled-components'
-import { useTranslation } from 'contexts/Localization'
-import { LinkExternal, Text } from '@pancakeswap/uikit'
+import React, { useMemo } from 'react'
+import styled from 'styled-components'
+import useI18n from 'hooks/useI18n'
+import { LinkExternal, Text, Link } from '@pancakeswap-libs/uikit'
 import { FarmWithStakedValue } from 'views/Farms/components/FarmCard/FarmCard'
 import getLiquidityUrlPathParts from 'utils/getLiquidityUrlPathParts'
-import { getAddress } from 'utils/addressHelpers'
-import { getBscScanLink } from 'utils'
-import { CommunityTag, CoreTag, DualTag } from 'components/Tags'
+import { communityFarms } from 'config/constants'
+import { DualTag } from 'components/Tags'
 
+import BigNumber from 'bignumber.js'
+import { usePriceBnbBusd, usePriceCakeBusd, usePriceEthBusd } from 'state/hooks'
 import HarvestAction from './HarvestAction'
 import StakedAction from './StakedAction'
 import Apr, { AprProps } from '../Apr'
 import Multiplier, { MultiplierProps } from '../Multiplier'
 import Liquidity, { LiquidityProps } from '../Liquidity'
+import Fee, { FeeProps } from '../Fee'
+import { QuoteToken } from '../../../../../config/constants/types'
 
 export interface ActionPanelProps {
   apr: AprProps
   multiplier: MultiplierProps
   liquidity: LiquidityProps
+  fee: FeeProps
   details: FarmWithStakedValue
-  userDataReady: boolean
-  expanded: boolean
 }
 
-const expandAnimation = keyframes`
-  from {
-    max-height: 0px;
-  }
-  to {
-    max-height: 500px;
-  }
-`
-
-const collapseAnimation = keyframes`
-  from {
-    max-height: 500px;
-  }
-  to {
-    max-height: 0px;
-  }
-`
-
-const Container = styled.div<{ expanded }>`
-  animation: ${({ expanded }) =>
-    expanded
-      ? css`
-          ${expandAnimation} 300ms linear forwards
-        `
-      : css`
-          ${collapseAnimation} 300ms linear forwards
-        `};
-  overflow: hidden;
+const Container = styled.div`
   background: ${({ theme }) => theme.colors.background};
   display: flex;
   width: 100%;
   flex-direction: column-reverse;
   padding: 24px;
 
-  ${({ theme }) => theme.mediaQueries.lg} {
+  ${({ theme }) => theme.mediaQueries.xl} {
     flex-direction: row;
     padding: 16px 32px;
   }
 `
 
 const StyledLinkExternal = styled(LinkExternal)`
+  font-weight: 400;
+  margin-left: 8px;
+`
+
+const StyledLink = styled(Link)`
   font-weight: 400;
 `
 
@@ -75,6 +55,21 @@ const StakeContainer = styled.div`
 
   ${({ theme }) => theme.mediaQueries.sm} {
     justify-content: flex-start;
+  }
+`
+
+const LpPriceContainer = styled.div`
+  color: ${({ theme }) => theme.colors.text};
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+
+  ${({ theme }) => theme.mediaQueries.sm} {
+    justify-content: flex-start;
+  }
+
+  span {
+    color: ${({ theme }) => theme.colors.textSubtle};
   }
 `
 
@@ -118,7 +113,7 @@ const InfoContainer = styled.div`
 const ValueContainer = styled.div`
   display: block;
 
-  ${({ theme }) => theme.mediaQueries.lg} {
+  ${({ theme }) => theme.mediaQueries.xl} {
     display: none;
   }
 `
@@ -130,62 +125,92 @@ const ValueWrapper = styled.div`
   margin: 4px 0px;
 `
 
-const ActionPanel: React.FunctionComponent<ActionPanelProps> = ({
-  details,
-  apr,
-  multiplier,
-  liquidity,
-  userDataReady,
-  expanded,
-}) => {
+const ActionPanel: React.FunctionComponent<ActionPanelProps> = ({ details, apr, multiplier, liquidity, fee }) => {
   const farm = details
 
-  const { t } = useTranslation()
-  const isActive = farm.multiplier !== '0X'
-  const { quoteToken, token, dual } = farm
+  const TranslateString = useI18n()
+  const { quoteTokenAdresses, quoteTokenSymbol, tokenAddresses, tokenSymbol, dual } = farm
   const lpLabel = farm.lpSymbol && farm.lpSymbol.toUpperCase().replace('PANCAKE', '')
-  const liquidityUrlPathParts = getLiquidityUrlPathParts({
-    quoteTokenAddress: quoteToken.address,
-    tokenAddress: token.address,
-  })
-  const lpAddress = getAddress(farm.lpAddresses)
-  const bsc = getBscScanLink(lpAddress, 'address')
-  const info = `/info/pool/${lpAddress}`
+  const liquidityUrlPathParts = getLiquidityUrlPathParts({ quoteTokenAdresses, quoteTokenSymbol, tokenAddresses })
+  const lpAddress = farm.lpAddresses[process.env.REACT_APP_CHAIN_ID]
+  const bsc = `https://bscscan.com/address/${lpAddress}`
+  const info = `https://pancakeswap.info/pair/${lpAddress}`
+  const cakePrice = usePriceCakeBusd()
+  const bnbPrice = usePriceBnbBusd()
+  const ethPrice = usePriceEthBusd()
+
+  const totalValue: BigNumber = useMemo(() => {
+    if (!farm.lpTotalInQuoteToken) {
+      return null
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.BNB) {
+      return bnbPrice.times(farm.lpTotalInQuoteToken)
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.CAKE) {
+      return cakePrice.times(farm.lpTotalInQuoteToken)
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.ETH) {
+      return ethPrice.times(farm.lpTotalInQuoteToken)
+    }
+    return farm.lpTotalInQuoteToken
+  }, [bnbPrice, cakePrice, ethPrice, farm.lpTotalInQuoteToken, farm.quoteTokenSymbol])
+
+  const lpPrice = useMemo(() => {
+    if (farm.isTokenOnly) {
+      return null
+    }
+
+    return Number(totalValue) / Number(farm.lpTokenBalanceMC)
+  }, [farm, totalValue])
+
+  const lpTokenPriceFormated = lpPrice
+    ? `~$${Number(lpPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : '-'
 
   return (
-    <Container expanded={expanded}>
+    <Container>
       <InfoContainer>
-        {isActive && (
-          <StakeContainer>
-            <StyledLinkExternal href={`/add/${liquidityUrlPathParts}`}>
-              {t('Get %symbol%', { symbol: lpLabel })}
-            </StyledLinkExternal>
-          </StakeContainer>
+        <StakeContainer>
+          Stake:
+          <StyledLinkExternal href={`https://swap.koaladefi.finance/#/add/${liquidityUrlPathParts}`}>
+            {lpLabel}
+          </StyledLinkExternal>
+        </StakeContainer>
+        <StyledLink href={bsc} external>
+          {TranslateString(999, 'BscScan')}
+        </StyledLink>
+        <StyledLink href={info} external>
+          {TranslateString(999, 'Info site')}
+        </StyledLink>
+        {!farm.isTokenOnly && (
+          <LpPriceContainer>
+            Lp Price:
+            <span>{lpTokenPriceFormated}</span>
+          </LpPriceContainer>
         )}
-        <StyledLinkExternal href={bsc}>{t('View Contract')}</StyledLinkExternal>
-        <StyledLinkExternal href={info}>{t('See Pair Info')}</StyledLinkExternal>
-        <TagsContainer>
-          {farm.isCommunity ? <CommunityTag /> : <CoreTag />}
-          {dual ? <DualTag /> : null}
-        </TagsContainer>
+        <TagsContainer>{dual ? <DualTag /> : null}</TagsContainer>
       </InfoContainer>
       <ValueContainer>
         <ValueWrapper>
-          <Text>{t('APR')}</Text>
+          <Text>APR</Text>
           <Apr {...apr} />
         </ValueWrapper>
         <ValueWrapper>
-          <Text>{t('Multiplier')}</Text>
+          <Text>{TranslateString(999, 'Multiplier')}</Text>
           <Multiplier {...multiplier} />
         </ValueWrapper>
         <ValueWrapper>
-          <Text>{t('Liquidity')}</Text>
+          <Text>{TranslateString(999, 'Liquidity')}</Text>
           <Liquidity {...liquidity} />
+        </ValueWrapper>
+        <ValueWrapper>
+          <Text>{TranslateString(999, 'Deposit fee')}</Text>
+          <Fee {...fee} />
         </ValueWrapper>
       </ValueContainer>
       <ActionContainer>
-        <HarvestAction {...farm} userDataReady={userDataReady} />
-        <StakedAction {...farm} userDataReady={userDataReady} lpLabel={lpLabel} displayApr={apr.value} />
+        <HarvestAction {...farm} />
+        <StakedAction {...farm} />
       </ActionContainer>
     </Container>
   )

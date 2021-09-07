@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import styled from 'styled-components'
 import { FarmWithStakedValue } from 'views/Farms/components/FarmCard/FarmCard'
-import { useMatchBreakpoints } from '@pancakeswap/uikit'
-import { useTranslation } from 'contexts/Localization'
-import useDelayedUnmount from 'hooks/useDelayedUnmount'
-import { useFarmUser } from 'state/farms/hooks'
+import { useMatchBreakpoints } from '@pancakeswap-libs/uikit'
+import useI18n from 'hooks/useI18n'
 
 import Apr, { AprProps } from './Apr'
 import Farm, { FarmProps } from './Farm'
@@ -12,6 +10,8 @@ import Earned, { EarnedProps } from './Earned'
 import Details from './Details'
 import Multiplier, { MultiplierProps } from './Multiplier'
 import Liquidity, { LiquidityProps } from './Liquidity'
+import Fee, { FeeProps } from './Fee'
+import LockUp from './Lockup'
 import ActionPanel from './Actions/ActionPanel'
 import CellLayout from './CellLayout'
 import { DesktopColumnSchema, MobileColumnSchema } from '../types'
@@ -22,11 +22,9 @@ export interface RowProps {
   earned: EarnedProps
   multiplier: MultiplierProps
   liquidity: LiquidityProps
+  lockup: FeeProps
+  fee: FeeProps
   details: FarmWithStakedValue
-}
-
-interface RowPropsWithLoading extends RowProps {
-  userDataReady: boolean
 }
 
 const cells = {
@@ -36,6 +34,8 @@ const cells = {
   details: Details,
   multiplier: Multiplier,
   liquidity: Liquidity,
+  lockup: LockUp,
+  fee: Fee,
 }
 
 const CellInner = styled.div`
@@ -52,7 +52,7 @@ const CellInner = styled.div`
 
 const StyledTr = styled.tr`
   cursor: pointer;
-  border-bottom: 2px solid ${({ theme }) => theme.colors.cardBorder};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.borderColor};
 `
 
 const EarnedMobileCell = styled.td`
@@ -68,34 +68,35 @@ const FarmMobileCell = styled.td`
   padding-top: 24px;
 `
 
-const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
-  const { details, userDataReady } = props
-  const hasStakedAmount = !!useFarmUser(details.pid).stakedBalance.toNumber()
-  const [actionPanelExpanded, setActionPanelExpanded] = useState(hasStakedAmount)
-  const shouldRenderChild = useDelayedUnmount(actionPanelExpanded, 300)
-  const { t } = useTranslation()
+const Row: React.FunctionComponent<RowProps> = (props) => {
+  const { details } = props
+  const [actionPanelToggled, setActionPanelToggled] = useState(false)
+  const TranslateString = useI18n()
 
   const toggleActionPanel = () => {
-    setActionPanelExpanded(!actionPanelExpanded)
+    setActionPanelToggled(!actionPanelToggled)
   }
 
-  useEffect(() => {
-    setActionPanelExpanded(hasStakedAmount)
-  }, [hasStakedAmount])
+  const cellLabel = (key: string): string => {
+    if (key === 'farm' || key === 'details') {
+      return ''
+    }
 
-  const { isDesktop, isMobile } = useMatchBreakpoints()
+    return key
+  }
 
-  const isSmallerScreen = !isDesktop
-  const tableSchema = isSmallerScreen ? MobileColumnSchema : DesktopColumnSchema
+  const { isXl, isXs } = useMatchBreakpoints()
+
+  const isMobile = !isXl
+  const tableSchema = isMobile ? MobileColumnSchema : DesktopColumnSchema
   const columnNames = tableSchema.map((column) => column.name)
 
   const handleRenderRow = () => {
-    if (!isMobile) {
+    if (!isXs) {
       return (
         <StyledTr onClick={toggleActionPanel}>
           {Object.keys(props).map((key) => {
-            const columnIndex = columnNames.indexOf(key)
-            if (columnIndex === -1) {
+            if (columnNames.indexOf(key) === -1) {
               return null
             }
 
@@ -105,7 +106,7 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
                   <td key={key}>
                     <CellInner>
                       <CellLayout>
-                        <Details actionPanelToggled={actionPanelExpanded} />
+                        <Details actionPanelToggled={actionPanelToggled} />
                       </CellLayout>
                     </CellInner>
                   </td>
@@ -114,8 +115,28 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
                 return (
                   <td key={key}>
                     <CellInner>
-                      <CellLayout label={t('APR')}>
-                        <Apr {...props.apr} hideButton={isSmallerScreen} />
+                      <CellLayout label={TranslateString(999, 'Apr')}>
+                        <Apr {...props.apr} hideButton={isMobile} />
+                      </CellLayout>
+                    </CellInner>
+                  </td>
+                )
+              case 'fee':
+                return (
+                  <td key={key}>
+                    <CellInner>
+                      <CellLayout label={TranslateString(10001, 'Fee')}>
+                        <Fee {...props.fee} />
+                      </CellLayout>
+                    </CellInner>
+                  </td>
+                )
+              case 'lockup':
+                return (
+                  <td key={key}>
+                    <CellInner>
+                      <CellLayout label={TranslateString(100010000, 'Lockup')}>
+                        <LockUp {...props.lockup} />
                       </CellLayout>
                     </CellInner>
                   </td>
@@ -124,9 +145,7 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
                 return (
                   <td key={key}>
                     <CellInner>
-                      <CellLayout label={t(tableSchema[columnIndex].label)}>
-                        {React.createElement(cells[key], { ...props[key], userDataReady })}
-                      </CellLayout>
+                      <CellLayout label={cellLabel(key)}>{React.createElement(cells[key], props[key])}</CellLayout>
                     </CellInner>
                   </td>
                 )
@@ -148,12 +167,12 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
           </tr>
           <tr>
             <EarnedMobileCell>
-              <CellLayout label={t('Earned')}>
-                <Earned {...props.earned} userDataReady={userDataReady} />
+              <CellLayout label={TranslateString(999, 'Earned')}>
+                <Earned {...props.earned} />
               </CellLayout>
             </EarnedMobileCell>
             <AprMobileCell>
-              <CellLayout label={t('APR')}>
+              <CellLayout label={TranslateString(999, 'Apr')}>
                 <Apr {...props.apr} hideButton />
               </CellLayout>
             </AprMobileCell>
@@ -162,7 +181,7 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
         <td>
           <CellInner>
             <CellLayout>
-              <Details actionPanelToggled={actionPanelExpanded} />
+              <Details actionPanelToggled={actionPanelToggled} />
             </CellLayout>
           </CellInner>
         </td>
@@ -173,10 +192,10 @@ const Row: React.FunctionComponent<RowPropsWithLoading> = (props) => {
   return (
     <>
       {handleRenderRow()}
-      {shouldRenderChild && (
+      {actionPanelToggled && details && (
         <tr>
-          <td colSpan={6}>
-            <ActionPanel {...props} expanded={actionPanelExpanded} />
+          <td colSpan={7}>
+            <ActionPanel {...props} />
           </td>
         </tr>
       )}

@@ -1,6 +1,5 @@
 import { request, gql } from 'graphql-request'
 import { campaignMap } from 'config/constants/campaigns'
-import { GRAPH_API_PROFILE } from 'config/constants/endpoints'
 import { Achievement } from 'state/types'
 import { getAchievementTitle, getAchievementDescription } from 'utils/achievements'
 
@@ -10,16 +9,18 @@ interface UserPointIncreaseEvent {
   points: string
 }
 
+const profileSubgraphApi = process.env.REACT_APP_SUBGRAPH_PROFILE
+
 /**
  * Gets all user point increase events on the profile filtered by wallet address
  */
 export const getUserPointIncreaseEvents = async (account: string): Promise<UserPointIncreaseEvent[]> => {
   try {
-    const { user } = await request(
-      GRAPH_API_PROFILE,
+    const data = await request(
+      profileSubgraphApi,
       gql`
-        query getUserPointIncreaseEvents($account: ID!) {
-          user(id: $account) {
+        {
+          user(id: "${account.toLowerCase()}") {
             points {
               id
               campaignId
@@ -28,12 +29,8 @@ export const getUserPointIncreaseEvents = async (account: string): Promise<UserP
           }
         }
       `,
-      {
-        account: account.toLowerCase(),
-      },
     )
-
-    return user.points
+    return data.user.points
   } catch (error) {
     return null
   }
@@ -50,10 +47,6 @@ export const getAchievements = async (account: string): Promise<Achievement[]> =
   }
 
   return pointIncreaseEvents.reduce((accum, userPoint) => {
-    if (!campaignMap.has(userPoint.campaignId)) {
-      return accum
-    }
-
     const campaignMeta = campaignMap.get(userPoint.campaignId)
 
     return [

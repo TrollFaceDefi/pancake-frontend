@@ -17,9 +17,7 @@
     "jsx": "react-jsx",
     "strictNullChecks": false,
     "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": true,
-    "downlevelIteration": true
+    "noFallthroughCasesInSwitch": true
   },
-  "exclude": ["node_modules", "cypress"],
-  "include": ["./src/**/*.ts", "./src/**/*.tsx"]
+  "include": ["src", "scripts"]
 }

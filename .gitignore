@@ -7,9 +7,6 @@
 
 # testing
 /coverage
-cypress/videos
-cypress/screenshots
-cypress/fixtures/example.json
 
 # next.js
 /.next/
@@ -22,12 +19,6 @@ cypress/fixtures/example.json
 # misc
 .DS_Store
 .eslintcache
-
-# local env files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # debug
 npm-debug.log*

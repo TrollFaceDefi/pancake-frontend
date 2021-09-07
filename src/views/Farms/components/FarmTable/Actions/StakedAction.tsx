@@ -1,175 +1,140 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import styled from 'styled-components'
-import { Button, useModal, IconButton, AddIcon, MinusIcon, Skeleton, Text, Heading } from '@pancakeswap/uikit'
-import { useLocation } from 'react-router-dom'
-import { BigNumber } from 'bignumber.js'
-import ConnectWalletButton from 'components/ConnectWalletButton'
-import Balance from 'components/Balance'
+import { Button, useModal, IconButton, AddIcon, MinusIcon } from '@pancakeswap-libs/uikit'
+import UnlockButton from 'components/UnlockButton'
 import { useWeb3React } from '@web3-react/core'
-import { useFarmUser, useLpTokenPrice, usePriceCakeBusd } from 'state/farms/hooks'
-import { fetchFarmUserDataAsync } from 'state/farms'
+import { useFarmFromPid, useFarmUser, usePriceBnbBusd, usePriceCakeBusd, usePriceEthBusd } from 'state/hooks'
 import { FarmWithStakedValue } from 'views/Farms/components/FarmCard/FarmCard'
-import { useTranslation } from 'contexts/Localization'
-import { useERC20 } from 'hooks/useContract'
+import useI18n from 'hooks/useI18n'
+import { useApprove } from 'hooks/useApprove'
+import { getBep20Contract } from 'utils/contractHelpers'
 import { BASE_ADD_LIQUIDITY_URL } from 'config'
-import { useAppDispatch } from 'state'
-import { getAddress } from 'utils/addressHelpers'
 import getLiquidityUrlPathParts from 'utils/getLiquidityUrlPathParts'
-import { getBalanceAmount, getBalanceNumber, getFullDisplayBalance } from 'utils/formatBalance'
-import useUnstakeFarms from '../../../hooks/useUnstakeFarms'
+import { getBalanceNumber } from 'utils/formatBalance'
+import useStake from 'hooks/useStake'
+import useUnstake from 'hooks/useUnstake'
+import useWeb3 from 'hooks/useWeb3'
+import BigNumber from 'bignumber.js'
+
 import DepositModal from '../../DepositModal'
 import WithdrawModal from '../../WithdrawModal'
-import useStakeFarms from '../../../hooks/useStakeFarms'
-import useApproveFarm from '../../../hooks/useApproveFarm'
-import { ActionContainer, ActionTitles, ActionContent } from './styles'
+import { ActionContainer, ActionTitles, ActionContent, Earned, Title, Subtle, Staked as StakedTag } from './styles'
+import { QuoteToken } from '../../../../../config/constants/types'
 
 const IconButtonWrapper = styled.div`
   display: flex;
 `
 
-interface StackedActionProps extends FarmWithStakedValue {
-  userDataReady: boolean
-  lpLabel?: string
-  displayApr?: string
-}
-
-const Staked: React.FunctionComponent<StackedActionProps> = ({
+const Staked: React.FunctionComponent<FarmWithStakedValue> = ({
   pid,
-  apr,
-  multiplier,
   lpSymbol,
-  lpLabel,
   lpAddresses,
-  quoteToken,
-  token,
-  userDataReady,
-  displayApr,
+  quoteTokenAdresses,
+  quoteTokenSymbol,
+  tokenAddresses,
 }) => {
-  const { t } = useTranslation()
+  const TranslateString = useI18n()
   const { account } = useWeb3React()
   const [requestedApproval, setRequestedApproval] = useState(false)
   const { allowance, tokenBalance, stakedBalance } = useFarmUser(pid)
-  const { onStake } = useStakeFarms(pid)
-  const { onUnstake } = useUnstakeFarms(pid)
-  const location = useLocation()
-  const lpPrice = useLpTokenPrice(lpSymbol)
+  const farm = useFarmFromPid(pid)
+  const { onStake } = useStake(pid)
+  const { onUnstake } = useUnstake(pid)
+  const web3 = useWeb3()
   const cakePrice = usePriceCakeBusd()
+  const bnbPrice = usePriceBnbBusd()
+  const ethPrice = usePriceEthBusd()
+  const totalValue: BigNumber = useMemo(() => {
+    if (!farm.lpTotalInQuoteToken) {
+      return null
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.BNB) {
+      return bnbPrice.times(farm.lpTotalInQuoteToken)
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.CAKE) {
+      return cakePrice.times(farm.lpTotalInQuoteToken)
+    }
+    if (farm.quoteTokenSymbol === QuoteToken.ETH) {
+      return ethPrice.times(farm.lpTotalInQuoteToken)
+    }
+    return farm.lpTotalInQuoteToken
+  }, [bnbPrice, cakePrice, ethPrice, farm.lpTotalInQuoteToken, farm.quoteTokenSymbol])
+
+  const lpPrice = useMemo(() => {
+    if (farm.isTokenOnly) {
+      return null
+    }
+
+    return Number(totalValue) / Number(farm.lpTokenBalanceMC)
+  }, [farm, totalValue])
 
   const isApproved = account && allowance && allowance.isGreaterThan(0)
 
-  const lpAddress = getAddress(lpAddresses)
-  const liquidityUrlPathParts = getLiquidityUrlPathParts({
-    quoteTokenAddress: quoteToken.address,
-    tokenAddress: token.address,
-  })
+  const lpAddress = lpAddresses[process.env.REACT_APP_CHAIN_ID]
+  const tokenAddress = tokenAddresses[process.env.REACT_APP_CHAIN_ID]
+  const liquidityUrlPathParts = getLiquidityUrlPathParts({ quoteTokenAdresses, quoteTokenSymbol, tokenAddresses })
   const addLiquidityUrl = `${BASE_ADD_LIQUIDITY_URL}/${liquidityUrlPathParts}`
-
-  const handleStake = async (amount: string) => {
-    await onStake(amount)
-    dispatch(fetchFarmUserDataAsync({ account, pids: [pid] }))
-  }
-
-  const handleUnstake = async (amount: string) => {
-    await onUnstake(amount)
-    dispatch(fetchFarmUserDataAsync({ account, pids: [pid] }))
-  }
-
-  const displayBalance = useCallback(() => {
-    const stakedBalanceBigNumber = getBalanceAmount(stakedBalance)
-    if (stakedBalanceBigNumber.gt(0) && stakedBalanceBigNumber.lt(0.0000001)) {
-      return stakedBalanceBigNumber.toFixed(10, BigNumber.ROUND_DOWN)
-    }
-    if (stakedBalanceBigNumber.gt(0) && stakedBalanceBigNumber.lt(0.0001)) {
-      return getFullDisplayBalance(stakedBalance).toLocaleString()
-    }
-    return stakedBalanceBigNumber.toFixed(3, BigNumber.ROUND_DOWN)
-  }, [stakedBalance])
+  const rawStakedBalance = getBalanceNumber(stakedBalance)
+  const displayBalance = rawStakedBalance.toLocaleString()
+  const displayBalanceUsd = (lpPrice * rawStakedBalance).toLocaleString()
 
   const [onPresentDeposit] = useModal(
-    <DepositModal
-      max={tokenBalance}
-      lpPrice={lpPrice}
-      lpLabel={lpLabel}
-      apr={apr}
-      displayApr={displayApr}
-      stakedBalance={stakedBalance}
-      onConfirm={handleStake}
-      tokenName={lpSymbol}
-      multiplier={multiplier}
-      addLiquidityUrl={addLiquidityUrl}
-      cakePrice={cakePrice}
-    />,
+    <DepositModal max={tokenBalance} onConfirm={onStake} tokenName={lpSymbol} addLiquidityUrl={addLiquidityUrl} />,
   )
-  const [onPresentWithdraw] = useModal(
-    <WithdrawModal max={stakedBalance} onConfirm={handleUnstake} tokenName={lpSymbol} />,
-  )
-  const lpContract = useERC20(lpAddress)
-  const dispatch = useAppDispatch()
-  const { onApprove } = useApproveFarm(lpContract)
+  const [onPresentWithdraw] = useModal(<WithdrawModal max={stakedBalance} onConfirm={onUnstake} tokenName={lpSymbol} />)
+
+  let lpContract
+
+  if (farm.isTokenOnly) {
+    lpContract = getBep20Contract(tokenAddress, web3)
+  } else {
+    lpContract = getBep20Contract(lpAddress, web3)
+  }
+
+  const { onApprove } = useApprove(lpContract)
 
   const handleApprove = useCallback(async () => {
     try {
       setRequestedApproval(true)
       await onApprove()
-      dispatch(fetchFarmUserDataAsync({ account, pids: [pid] }))
-
       setRequestedApproval(false)
     } catch (e) {
       console.error(e)
     }
-  }, [onApprove, dispatch, account, pid])
+  }, [onApprove])
 
   if (!account) {
     return (
       <ActionContainer>
         <ActionTitles>
-          <Text bold textTransform="uppercase" color="textSubtle" fontSize="12px">
-            {t('Start Farming')}
-          </Text>
+          <Subtle>{TranslateString(737, 'START FARMING')}</Subtle>
         </ActionTitles>
         <ActionContent>
-          <ConnectWalletButton width="100%" />
+          <UnlockButton width="100%" />
         </ActionContent>
       </ActionContainer>
     )
   }
 
   if (isApproved) {
-    if (stakedBalance.gt(0)) {
+    if (rawStakedBalance) {
       return (
         <ActionContainer>
           <ActionTitles>
-            <Text bold textTransform="uppercase" color="secondary" fontSize="12px" pr="4px">
-              {lpSymbol}
-            </Text>
-            <Text bold textTransform="uppercase" color="textSubtle" fontSize="12px">
-              {t('Staked')}
-            </Text>
+            <Title>{lpSymbol} </Title>
+            <Subtle>{TranslateString(738, 'STAKED')}</Subtle>
           </ActionTitles>
           <ActionContent>
             <div>
-              <Heading>{displayBalance()}</Heading>
-              {stakedBalance.gt(0) && lpPrice.gt(0) && (
-                <Balance
-                  fontSize="12px"
-                  color="textSubtle"
-                  decimals={2}
-                  value={getBalanceNumber(lpPrice.times(stakedBalance))}
-                  unit=" USD"
-                  prefix="~"
-                />
-              )}
+              <Earned>{displayBalance}</Earned>
+              {!farm.isTokenOnly && <StakedTag>~{displayBalanceUsd}USD</StakedTag>}
             </div>
             <IconButtonWrapper>
               <IconButton variant="secondary" onClick={onPresentWithdraw} mr="6px">
-                <MinusIcon color="primary" width="14px" />
+                <MinusIcon color="primary" />
               </IconButton>
-              <IconButton
-                variant="secondary"
-                onClick={onPresentDeposit}
-                disabled={['history', 'archived'].some((item) => location.pathname.includes(item))}
-              >
-                <AddIcon color="primary" width="14px" />
+              <IconButton variant="secondary" onClick={onPresentDeposit}>
+                <AddIcon color="primary" />
               </IconButton>
             </IconButtonWrapper>
           </ActionContent>
@@ -180,37 +145,13 @@ const Staked: React.FunctionComponent<StackedActionProps> = ({
     return (
       <ActionContainer>
         <ActionTitles>
-          <Text bold textTransform="uppercase" color="textSubtle" fontSize="12px" pr="4px">
-            {t('Stake').toUpperCase()}
-          </Text>
-          <Text bold textTransform="uppercase" color="secondary" fontSize="12px">
-            {lpSymbol}
-          </Text>
+          <Subtle>{TranslateString(735, 'STAKE')} </Subtle>
+          <Title>{lpSymbol}</Title>
         </ActionTitles>
         <ActionContent>
-          <Button
-            width="100%"
-            onClick={onPresentDeposit}
-            variant="secondary"
-            disabled={['history', 'archived'].some((item) => location.pathname.includes(item))}
-          >
-            {t('Stake LP')}
+          <Button width="100%" onClick={onPresentDeposit} variant="secondary">
+            {TranslateString(736, 'Stake')}
           </Button>
-        </ActionContent>
-      </ActionContainer>
-    )
-  }
-
-  if (!userDataReady) {
-    return (
-      <ActionContainer>
-        <ActionTitles>
-          <Text bold textTransform="uppercase" color="textSubtle" fontSize="12px">
-            {t('Start Farming')}
-          </Text>
-        </ActionTitles>
-        <ActionContent>
-          <Skeleton width={180} marginBottom={28} marginTop={14} />
         </ActionContent>
       </ActionContainer>
     )
@@ -219,13 +160,11 @@ const Staked: React.FunctionComponent<StackedActionProps> = ({
   return (
     <ActionContainer>
       <ActionTitles>
-        <Text bold textTransform="uppercase" color="textSubtle" fontSize="12px">
-          {t('Enable Farm')}
-        </Text>
+        <Subtle>{TranslateString(741, 'ENABLE')}</Subtle>
       </ActionTitles>
       <ActionContent>
         <Button width="100%" disabled={requestedApproval} onClick={handleApprove} variant="secondary">
-          {t('Enable')}
+          {TranslateString(741, 'Enable')}
         </Button>
       </ActionContent>
     </ActionContainer>

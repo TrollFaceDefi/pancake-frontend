@@ -5,6 +5,15 @@ You can start by reading our [Contribution guidelines](https://docs.pancakeswap.
 
 ## Setup
 
+Create a `.env.development.local` file at the root of the project. Add the following lines inside :
+
+```
+REACT_APP_CROWDIN_APIKEY = ""
+REACT_APP_CROWDIN_PROJECTID = ""
+```
+
+You'll need this in order to get the i18n system to work. Contact a dev if you need these values.
+
 Install the dependencies
 
 ```shell
@@ -30,23 +39,24 @@ Run tests with `yarn test`.
 
 ## Localisation
 
-Keys should be added to translation.json file, in order to be translated to other languages.
+_In order for the Crowdin API queries to work - you will need `REACT_APP_CROWDIN_APIKEY` & `REACT_APP_CROWDIN_PROJECTID` env variables set in your root `.env.development.local` file_
 
 ### Adding translations
 
 A hook expose the function you need to translate content.
 
 ```
-import { useTranslation } from 'contexts/Localization'
+import useI18n from 'hooks/useI18n'
 
 ...
-const { t } =  useTranslation()
+const TranslateString = useI18n()
 ...
 
-t(key, data)
+TranslateString(id, 'fallback', data)
 ```
 
-- **key** is the crowdin key of the string you want to translate.
+- **id** is the crowdin id of the string you want to translate.
+- **fallback** is a string fallback used if the id cannot be found.
 - **data** dynamic variables
 
 #### Dynamic variables Example
@@ -54,47 +64,5 @@ t(key, data)
 If a Crowdin translation like this `You have %num% left in your wallet` - would look something like:
 
 ```
-t(`You have %num% left in your wallet`, { num: cakeBalance })
+TranslateString(675, `You have ${cakeBalance} left in your wallet`, { num: cakeBalance })
 ```
-
-## Issue reports
-
-A bug is a _demonstrable problem_ that is caused by the code in the repository.
-Good bug reports are extremely helpful - thank you!
-
-Guidelines for bug reports:
-
-1. **Use the GitHub issue search** &mdash; check if the issue has already been
-   reported.
-
-2. **Check if the issue has been fixed** &mdash; try to reproduce it using the
-   latest `master` or development branch in the repository.
-
-3. **Isolate the problem** &mdash; create a [reduced test
-   case](http://css-tricks.com/reduced-test-cases/) and a live example.
-
-4. **Add attachments** &mdash; add photos or videos
-
-A good bug report shouldn't leave others needing to chase you up for more
-information. Please try to be as detailed as possible in your report. What is
-your environment? What steps will reproduce the issue? What browser(s) and OS
-experience the problem? What would you expect to be the outcome? All these
-details will help people to fix any potential bugs.
-
-Template:
-
-```
-**Environment:**
-Device and OS:
-Browser:
-Reproducibility rate:
-
-**Steps to reproduce:**
-1.
-2.
-3.
-
-**Expected result:**
-```
-
-A good bug report shouldn't leave others needing to chase you up for more.

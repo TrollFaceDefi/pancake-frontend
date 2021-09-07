@@ -8,8 +8,10 @@ export type TableProps = {
 
 export type ColumnsDefTypes = {
   id: number
-  label: string
+  bold: string
+  normal: string
   name: string
+  translationId: number
   sortable: boolean
 }
 
@@ -20,76 +22,104 @@ export type ScrollBarProps = {
 
 export type TableDataTypes = {
   POOL: string
-  APR: string
+  APY: string
   EARNED: string
   STAKED: string
   DETAILS: string
   LINKS: string
 }
 
-export const MobileColumnSchema: ColumnsDefTypes[] = [
+export const MobileColumnSchema = [
   {
     id: 1,
+    bold: '',
+    normal: 'Farm',
     name: 'farm',
+    translationId: 999,
     sortable: true,
-    label: '',
   },
   {
     id: 2,
+    bold: 'LYPTUS',
+    normal: 'EARNED',
     name: 'earned',
+    translationId: 999,
     sortable: true,
-    label: 'Earned',
   },
   {
     id: 3,
+    bold: '',
+    normal: 'APR',
     name: 'apr',
+    translationId: 999,
     sortable: true,
-    label: 'APR',
   },
   {
     id: 6,
+    bold: '',
+    normal: 'DETAILS',
     name: 'details',
+    translationId: 999,
     sortable: true,
-    label: '',
   },
 ]
 
 export const DesktopColumnSchema: ColumnsDefTypes[] = [
   {
     id: 1,
+    bold: '',
+    normal: 'Farm',
     name: 'farm',
+    translationId: 999,
     sortable: true,
-    label: '',
   },
   {
     id: 2,
+    bold: 'LYPTUS',
+    normal: 'EARNED',
     name: 'earned',
+    translationId: 999,
     sortable: true,
-    label: 'Earned',
   },
   {
     id: 3,
+    bold: '',
+    normal: 'APR',
     name: 'apr',
+    translationId: 999,
     sortable: true,
-    label: 'APR',
   },
   {
     id: 4,
+    bold: '',
+    normal: 'STAKED',
     name: 'liquidity',
+    translationId: 999,
     sortable: true,
-    label: 'Liquidity',
   },
   {
     id: 5,
+    bold: '',
+    normal: 'MULTIPLIER',
     name: 'multiplier',
+    translationId: 999,
     sortable: true,
-    label: 'Multiplier',
   },
   {
     id: 6,
-    name: 'details',
+    bold: '',
+    normal: 'FEE',
+    name: 'fee',
+    translationId: 999,
     sortable: true,
-    label: '',
+  },
+  {
+    id: 7,
+    bold: '',
+    normal: 'DETAILS',
+    name: 'details',
+    translationId: 999,
+    sortable: true,
   },
 ]
 

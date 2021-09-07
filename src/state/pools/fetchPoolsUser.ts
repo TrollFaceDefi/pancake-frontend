@@ -1,22 +1,25 @@
+import { AbiItem } from 'web3-utils'
 import poolsConfig from 'config/constants/pools'
+import masterChefABI from 'config/abi/masterchef.json'
 import sousChefABI from 'config/abi/sousChef.json'
 import erc20ABI from 'config/abi/erc20.json'
+import { QuoteToken } from 'config/constants/types'
 import multicall from 'utils/multicall'
-import { getMasterchefContract } from 'utils/contractHelpers'
-import { getAddress } from 'utils/addressHelpers'
-import { simpleRpcProvider } from 'utils/providers'
+import { getAddress, getMasterChefAddress } from 'utils/addressHelpers'
+import { getWeb3NoAccount } from 'utils/web3'
 import BigNumber from 'bignumber.js'
 
 // Pool 0, Cake / Cake is a different kind of contract (master chef)
 // BNB pools use the native BNB token (wrapping ? unwrapping is done at the contract level)
-const nonBnbPools = poolsConfig.filter((p) => p.stakingToken.symbol !== 'BNB')
-const bnbPools = poolsConfig.filter((p) => p.stakingToken.symbol === 'BNB')
+const nonBnbPools = poolsConfig.filter((p) => p.stakingTokenName !== QuoteToken.BNB)
+const bnbPools = poolsConfig.filter((p) => p.stakingTokenName === QuoteToken.BNB)
 const nonMasterPools = poolsConfig.filter((p) => p.sousId !== 0)
-const masterChefContract = getMasterchefContract()
+const web3 = getWeb3NoAccount()
+const masterChefContract = new web3.eth.Contract((masterChefABI as unknown) as AbiItem, getMasterChefAddress())
 
 export const fetchPoolsAllowance = async (account) => {
   const calls = nonBnbPools.map((p) => ({
-    address: getAddress(p.stakingToken.address),
+    address: p.stakingTokenAddress,
     name: 'allowance',
     params: [account, getAddress(p.contractAddress)],
   }))
@@ -31,7 +34,7 @@ export const fetchPoolsAllowance = async (account) => {
 export const fetchUserBalances = async (account) => {
   // Non BNB pools
   const calls = nonBnbPools.map((p) => ({
-    address: getAddress(p.stakingToken.address),
+    address: p.stakingTokenAddress,
     name: 'balanceOf',
     params: [account],
   }))
@@ -42,9 +45,9 @@ export const fetchUserBalances = async (account) => {
   )
 
   // BNB pools
-  const bnbBalance = await simpleRpcProvider.getBalance(account)
+  const bnbBalance = await web3.eth.getBalance(account)
   const bnbBalances = bnbPools.reduce(
-    (acc, pool) => ({ ...acc, [pool.sousId]: new BigNumber(bnbBalance.toString()).toJSON() }),
+    (acc, pool) => ({ ...acc, [pool.sousId]: new BigNumber(bnbBalance).toJSON() }),
     {},
   )
 
@@ -67,9 +70,9 @@ export const fetchUserStakeBalances = async (account) => {
   )
 
   // Cake / Cake pool
-  const { amount: masterPoolAmount } = await masterChefContract.userInfo('0', account)
+  const { amount: masterPoolAmount } = await masterChefContract.methods.userInfo('0', account).call()
 
-  return { ...stakedBalances, 0: new BigNumber(masterPoolAmount.toString()).toJSON() }
+  return { ...stakedBalances, 0: new BigNumber(masterPoolAmount).toJSON() }
 }
 
 export const fetchUserPendingRewards = async (account) => {
@@ -88,7 +91,7 @@ export const fetchUserPendingRewards = async (account) => {
   )
 
   // Cake / Cake pool
-  const pendingReward = await masterChefContract.pendingCake('0', account)
+  const pendingReward = await masterChefContract.methods.pendingLyptus('0', account).call()
 
-  return { ...pendingRewards, 0: new BigNumber(pendingReward.toString()).toJSON() }
+  return { ...pendingRewards, 0: new BigNumber(pendingReward).toJSON() }
 }

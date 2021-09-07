@@ -1,16 +1,19 @@
 import BigNumber from 'bignumber.js'
 import erc20ABI from 'config/abi/erc20.json'
+import MultiCallAbi from 'config/abi/Multicall.json'
 import masterchefABI from 'config/abi/masterchef.json'
 import multicall from 'utils/multicall'
-import { getAddress, getMasterChefAddress } from 'utils/addressHelpers'
-import { FarmConfig } from 'config/constants/types'
+import farmsConfig from 'config/constants/farms'
+import { getAddress, getMasterChefAddress, getMulticallAddress } from 'utils/addressHelpers'
 
-export const fetchFarmUserAllowances = async (account: string, farmsToFetch: FarmConfig[]) => {
-  const masterChefAddress = getMasterChefAddress()
+const CHAIN_ID = process.env.REACT_APP_CHAIN_ID
 
-  const calls = farmsToFetch.map((farm) => {
-    const lpContractAddress = getAddress(farm.lpAddresses)
-    return { address: lpContractAddress, name: 'allowance', params: [account, masterChefAddress] }
+export const fetchFarmUserAllowances = async (account: string) => {
+  const masterChefAdress = getMasterChefAddress()
+
+  const calls = farmsConfig.map((farm) => {
+    const lpContractAddress = farm.isTokenOnly ? farm.tokenAddresses[CHAIN_ID] : farm.lpAddresses[CHAIN_ID]
+    return { address: lpContractAddress, name: 'allowance', params: [account, masterChefAdress] }
   })
 
   const rawLpAllowances = await multicall(erc20ABI, calls)
@@ -20,9 +23,9 @@ export const fetchFarmUserAllowances = async (account: string, farmsToFetch: Far
   return parsedLpAllowances
 }
 
-export const fetchFarmUserTokenBalances = async (account: string, farmsToFetch: FarmConfig[]) => {
-  const calls = farmsToFetch.map((farm) => {
-    const lpContractAddress = getAddress(farm.lpAddresses)
+export const fetchFarmUserTokenBalances = async (account: string) => {
+  const calls = farmsConfig.map((farm) => {
+    const lpContractAddress = farm.isTokenOnly ? farm.tokenAddresses[CHAIN_ID] : farm.lpAddresses[CHAIN_ID]
     return {
       address: lpContractAddress,
       name: 'balanceOf',
@@ -37,12 +40,12 @@ export const fetchFarmUserTokenBalances = async (account: string, farmsToFetch: 
   return parsedTokenBalances
 }
 
-export const fetchFarmUserStakedBalances = async (account: string, farmsToFetch: FarmConfig[]) => {
-  const masterChefAddress = getMasterChefAddress()
+export const fetchFarmUserStakedBalances = async (account: string) => {
+  const masterChefAdress = getMasterChefAddress()
 
-  const calls = farmsToFetch.map((farm) => {
+  const calls = farmsConfig.map((farm) => {
     return {
-      address: masterChefAddress,
+      address: masterChefAdress,
       name: 'userInfo',
       params: [farm.pid, account],
     }
@@ -55,13 +58,13 @@ export const fetchFarmUserStakedBalances = async (account: string, farmsToFetch:
   return parsedStakedBalances
 }
 
-export const fetchFarmUserEarnings = async (account: string, farmsToFetch: FarmConfig[]) => {
-  const masterChefAddress = getMasterChefAddress()
+export const fetchFarmUserEarnings = async (account: string) => {
+  const masterChefAdress = getMasterChefAddress()
 
-  const calls = farmsToFetch.map((farm) => {
+  const calls = farmsConfig.map((farm) => {
     return {
-      address: masterChefAddress,
-      name: 'pendingCake',
+      address: masterChefAdress,
+      name: 'pendingLyptus',
       params: [farm.pid, account],
     }
   })
@@ -72,3 +75,39 @@ export const fetchFarmUserEarnings = async (account: string, farmsToFetch: FarmC
   })
   return parsedEarnings
 }
+
+
+
+export const fetchFarmUserLockup = async (account: string) => {
+  const masterChefAdress = getMasterChefAddress()
+
+  const calls = farmsConfig.map((farm) => {
+    return {
+      address: masterChefAdress,
+      name: 'userInfo',
+      params: [farm.pid, account],
+    }
+  })
+
+  const rawStakedBalances = await multicall(masterchefABI, calls)
+  const parsedStakedBalances = rawStakedBalances.map((stakedBalance) => {
+    return new BigNumber(stakedBalance.harvestLockup._hex).toJSON()
+  })
+  return parsedStakedBalances
+}
+export const readBlock = async () => {
+  const multiCall = getMulticallAddress()
+
+  const calls = 
+   [{
+      address: multiCall,
+      name: 'getCurrentBlockTimestamp',
+    }
+  ]
+
+  const block = await multicall(MultiCallAbi, calls)
+
+  return block
+}
+
+

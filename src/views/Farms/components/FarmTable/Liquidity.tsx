@@ -1,56 +1,53 @@
 import React from 'react'
 import styled from 'styled-components'
-import { HelpIcon, Text, Skeleton, useTooltip } from '@pancakeswap/uikit'
-import { useTranslation } from 'contexts/Localization'
-import BigNumber from 'bignumber.js'
+import { HelpIcon, Text } from '@pancakeswap-libs/uikit'
+import useI18n from 'hooks/useI18n'
 
-const ReferenceElement = styled.div`
-  display: inline-block;
-`
+import Tooltip from '../Tooltip/Tooltip'
 
 export interface LiquidityProps {
-  liquidity: BigNumber
+  liquidity: number
 }
 
 const LiquidityWrapper = styled.div`
   min-width: 110px;
   font-weight: 600;
   text-align: right;
-  margin-right: 14px;
 
-  ${({ theme }) => theme.mediaQueries.lg} {
+  ${({ theme }) => theme.mediaQueries.sm} {
     text-align: left;
-    margin-right: 0;
   }
 `
 
 const Container = styled.div`
   display: flex;
   align-items: center;
+
+  svg {
+    margin-left: 14px;
+  }
+
+  ${({ theme }) => theme.mediaQueries.sm} {
+    svg {
+      margin-left: 0;
+    }
+  }
 `
 
 const Liquidity: React.FunctionComponent<LiquidityProps> = ({ liquidity }) => {
-  const displayLiquidity =
-    liquidity && liquidity.gt(0) ? (
-      `$${Number(liquidity).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-    ) : (
-      <Skeleton width={60} />
-    )
-  const { t } = useTranslation()
-  const { targetRef, tooltip, tooltipVisible } = useTooltip(
-    t('Total value of the funds in this farm’s liquidity pool'),
-    { placement: 'top-end', tooltipOffset: [20, 10] },
-  )
+  const displayLiquidity = liquidity
+    ? `$${Number(liquidity).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    : '-'
+  const TranslateString = useI18n()
 
   return (
     <Container>
       <LiquidityWrapper>
         <Text>{displayLiquidity}</Text>
       </LiquidityWrapper>
-      <ReferenceElement ref={targetRef}>
+      <Tooltip content={TranslateString(999, 'The total value of the funds in this farm’s liquidity pool')}>
         <HelpIcon color="textSubtle" />
-      </ReferenceElement>
-      {tooltipVisible && tooltip}
+      </Tooltip>
     </Container>
   )
 }

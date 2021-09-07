@@ -1,117 +1,50 @@
-import { MenuEntry } from '@pancakeswap/uikit'
-import { ContextApi } from 'contexts/Localization/types'
+import { MenuEntry } from '@pancakeswap-libs/uikit'
 
-const config: (t: ContextApi['t']) => MenuEntry[] = (t) => [
+const config: MenuEntry[] = [
   {
-    label: t('Home'),
+    label: 'Home',
     icon: 'HomeIcon',
     href: '/',
   },
   {
-    label: t('Trade'),
+    label: 'Trade',
     icon: 'TradeIcon',
     items: [
       {
-        label: t('Exchange'),
-        href: '/swap',
+        label: 'Exchange',
+        href:
+          'https://exchange.trollface.finance/#/swap?outputCurrency=0xea27688726a94c21180a300484d55a791f993fc6',
       },
       {
-        label: t('Liquidity'),
-        href: '/liquidity',
-      },
-      {
-        label: t('LP Migration'),
-        href: 'https://v1exchange.pancakeswap.finance/#/migrate',
+        label: 'Liquidity',
+        href:
+          'https://exchange.trollface.finance/#/pool',
       },
     ],
   },
   {
-    label: t('Farms'),
+    label: 'Farms',
     icon: 'FarmIcon',
     href: '/farms',
   },
   {
-    label: t('Pools'),
+    label: 'Pools',
     icon: 'PoolIcon',
     href: '/pools',
   },
   {
-    label: t('Prediction (BETA)'),
-    icon: 'PredictionsIcon',
-    href: '/prediction',
-  },
-  {
-    label: t('Lottery'),
-    icon: 'TicketIcon',
-    href: '/lottery',
-  },
-  {
-    label: t('Collectibles'),
-    icon: 'NftIcon',
-    href: '/collectibles',
-  },
-  {
-    label: t('Team Battle'),
-    icon: 'TeamBattleIcon',
-    href: '/competition',
-  },
-  {
-    label: t('Teams & Profile'),
-    icon: 'GroupsIcon',
-    items: [
-      {
-        label: t('Leaderboard'),
-        href: '/teams',
-      },
-      {
-        label: t('Task Center'),
-        href: '/profile/tasks',
-      },
-      {
-        label: t('Your Profile'),
-        href: '/profile',
-      },
-    ],
-  },
-  {
-    label: t('Info'),
-    icon: 'InfoIcon',
-    href: '/info',
-  },
-  {
-    label: t('IFO'),
-    icon: 'IfoIcon',
-    href: '/ifo',
-  },
-  {
-    label: t('More'),
+    label: 'More',
     icon: 'MoreIcon',
     items: [
       {
-        label: t('Contact'),
-        href: 'https://docs.pancakeswap.finance/contact-us',
+        label: 'Github',
+        href: 'https://github.com/TrollFaceDefi/',
       },
       {
-        label: t('Voting'),
-        href: '/voting',
+        label: 'Info',
+        href: 'https://poocoin.app/tokens/0xea27688726a94c21180a300484d55a791f993fc6',
       },
-      {
-        label: t('Github'),
-        href: 'https://github.com/pancakeswap',
-      },
-      {
-        label: t('Docs'),
-        href: 'https://docs.pancakeswap.finance',
-      },
-      {
-        label: t('Blog'),
-        href: 'https://pancakeswap.medium.com',
-      },
-      {
-        label: t('Merch'),
-        href: 'https://pancakeswap.creator-spring.com/',
-      },
-    ],
+    ]
   },
 ]
 
